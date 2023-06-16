@@ -1,0 +1,53 @@
+import RPi.GPIO as GPIO
+import random
+import spotipy
+from spotipy.oauth2 import SpotifyOAuth
+
+# Define GPIO pins for light detection sensors
+SENSOR_PINS = [4, 17, 27]  # Example pins, adjust according to your setup
+
+# Define Spotify API credentials
+CLIENT_ID = 'your_client_id'
+CLIENT_SECRET = 'your_client_secret'
+REDIRECT_URI = 'http://localhost:8888/callback'
+
+# Define album URIs for each light detection sensor
+ALBUM_URIS = [
+    'spotify:album:album_uri_1',
+    'spotify:album:album_uri_2',
+    'spotify:album:album_uri_3'
+]  # Example album URIs, replace with your own
+
+# Initialize Spotify API
+scope = 'user-read-playback-state,user-modify-playback-state'
+sp = spotipy.Spotify(auth_manager=SpotifyOAuth(client_id=CLIENT_ID,
+                                               client_secret=CLIENT_SECRET,
+                                               redirect_uri=REDIRECT_URI,
+                                               scope=scope))
+
+# Configure GPIO
+GPIO.setmode(GPIO.BCM)
+for pin in SENSOR_PINS:
+    GPIO.setup(pin, GPIO.IN)
+
+# Function to play a random song from an album
+def play_random_song(album_uri):
+    results = sp.album_tracks(album_uri)
+    tracks = results['items']
+    random_track = random.choice(tracks)
+    track_uri = random_track['uri']
+    sp.start_playback(uris=[track_uri])
+
+# Main program loop
+try:
+    while True:
+        for i, pin in enumerate(SENSOR_PINS):
+            if GPIO.input(pin):
+                album_uri = ALBUM_URIS[i]
+                play_random_song(album_uri)
+                while GPIO.input(pin):
+                    pass  # Wait until the sensor is deactivated
+except KeyboardInterrupt:
+    pass
+finally:
+    GPIO.cleanup()
